@@ -1,0 +1,45 @@
+---
+abstract: 'A simple astronomical source plotter'
+author:
+  - 'Graham Bell <g.bell@jach.hawaii.edu>'
+  - 'Tim Jenness <tjenness@cpan.org>'
+  - 'Remo Tilanus <r.tilanus@jach.hawaii.edu>'
+  - 'Pam Shimek <pshimek@uvic.ca>'
+  - 'Casey Best <cbest@uvic.ca>'
+build_requires:
+  Test::More: 0
+  Test::Number::Delta: 0
+configure_requires:
+  Module::Build: 0.3
+dynamic_config: 1
+generated_by: 'Module::Build version 0.3901, CPAN::Meta::Converter version 2.120630'
+license: open_source
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: App-SourcePlot
+provides:
+  App::SourcePlot::Defaults:
+    file: lib/App/SourcePlot/Defaults.pm
+    version: 0.10
+  App::SourcePlot::Plotter::Tk:
+    file: lib/App/SourcePlot/Plotter/Tk.pm
+    version: 0.11
+  App::SourcePlot::Source:
+    file: lib/App/SourcePlot/Source.pm
+    version: 1.01
+requires:
+  Astro::Catalog: 2.01
+  Astro::Coords: 0.13
+  Astro::Coords::Planet: 0.05
+  Astro::PAL: 1.00
+  Astro::Telescope: 0.71
+  DateTime: 0
+  File::ShareDir: 1.03
+  Tk: 804.0
+  Tk::AstroCatalog: 0.12
+resources:
+  homepage: http://github.com/grahambell/perl-App-SourcePlot/tree/master
+  license: http://opensource.org/licenses/gpl-license.php
+  repository: git://github.com/grahambell/perl-App-SourcePlot.git
+version: 1.17
