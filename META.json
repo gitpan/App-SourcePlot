@@ -44,6 +44,10 @@
       }
    },
    "provides" : {
+      "App::SourcePlot" : {
+         "file" : "lib/App/SourcePlot.pm",
+         "version" : "1.18"
+      },
       "App::SourcePlot::Defaults" : {
          "file" : "lib/App/SourcePlot/Defaults.pm",
          "version" : "0.10"
@@ -67,5 +71,5 @@
          "url" : "git://github.com/grahambell/perl-App-SourcePlot.git"
       }
    },
-   "version" : "1.17"
+   "version" : "1.18"
 }

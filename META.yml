@@ -19,6 +19,9 @@ meta-spec:
   version: 1.4
 name: App-SourcePlot
 provides:
+  App::SourcePlot:
+    file: lib/App/SourcePlot.pm
+    version: 1.18
   App::SourcePlot::Defaults:
     file: lib/App/SourcePlot/Defaults.pm
     version: 0.10
@@ -42,4 +45,4 @@ resources:
   homepage: http://github.com/grahambell/perl-App-SourcePlot/tree/master
   license: http://opensource.org/licenses/gpl-license.php
   repository: git://github.com/grahambell/perl-App-SourcePlot.git
-version: 1.17
+version: 1.18
