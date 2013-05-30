@@ -29,7 +29,7 @@ use Math::Trig qw/pi/;
 use DateTime;
 use DateTime::Format::Strptime;
 
-our $VERSION = '1.01';
+our $VERSION = '1.02';
 
 my $locateBug = 0;
 
@@ -92,12 +92,18 @@ sub configure {
     print "Passed in paramaters are being entered\n" if $locateBug;
     my ($ra, $dec, $epoc, undef) = @_;
 
+    # Prevent Astro::Coords guessing between radians and degrees.
+    my $unit = ($ra =~ /:/ or $dec =~ /:/)
+             ? 'sexagesimal'
+             : 'degrees';
+
     if ($epoc eq 'RJ') {
       $self->coords(new Astro::Coords(
         name => $name,
         ra => $ra,
         dec => $dec,
-        type => 'J2000'
+        type => 'J2000',
+        units => $unit,
       ));
     }
     elsif ($epoc eq 'RB') {
@@ -105,7 +111,8 @@ sub configure {
         name => $name,
         ra => $ra,
         dec => $dec,
-        type => 'B1950'
+        type => 'B1950',
+        units => $unit,
       ));
     }
     elsif ($epoc eq 'GA') {
@@ -113,14 +120,16 @@ sub configure {
         name => $name,
         long => $ra,
         lat => $dec,
-        type => 'galactic'
+        type => 'galactic',
+        units => $unit,
       ));
     }
     elsif ($epoc eq 'AZ') {
       $self->coords(new Astro::Coords(
         name => $name,
         az => $ra,
-        el => $dec
+        el => $dec,
+        units => $unit,
       ));
     }
     else {
@@ -133,20 +142,6 @@ sub configure {
       planet => $name
     ));
   }
-}
-
-=item destroy
-
-Destroys an object of this type.  Cleans up the variables and
-windows within.
-
-  destroy $obs;
-
-=cut
-
-sub DESTROY {
-  my $self = shift;
-  $self->{MW}->destroy if defined $self->{MW};
 }
 
 ############################################################
@@ -247,7 +242,8 @@ sub index {
 
 =item ra
 
-returns the ra of the source
+Returns the RA of the source, or other coordinate type
+in systems other than RJ / RB.
 
   $ra = $obs->ra();
 
@@ -260,12 +256,14 @@ sub ra {
   }
   my $native_method = $self->coords()->native();
   my ($ra, undef) = $self->coords()->$native_method();
+  return sprintf('%.4f', $ra->degrees()) if $self->epoc() eq 'GA';
   return $ra->in_format('sexagesimal');
 }
 
 =item dec
 
-returns the dec of the source
+Returns the declination of the source, or other coordinate
+type in systems other than RJ / RB.
 
   $dec = $obs->dec();
 
@@ -278,6 +276,7 @@ sub dec {
   }
   my $native_method = $self->coords()->native();
   my (undef, $dec) = $self->coords()->$native_method();
+  return sprintf('% .4f', $dec->degrees()) if $self->epoc() eq 'GA';
   return $dec->in_format('sexagesimal');
 }
 
@@ -347,6 +346,21 @@ sub elevation {
     die 'App::SourcePlot::Source cannot set elevation';
   }
   return $self->coords()->el(format => 'd');
+}
+
+=item is_blank
+
+Returns true if the source information is "blank".  This is the
+default state for an object constructed with no arguments,
+and is represented by the Astro::Coords default type -- a
+Calibration object.
+
+=cut
+
+sub is_blank {
+    my $self = shift;
+
+    return $self->coords()->type() eq 'CAL';
 }
 
 =item NameX
@@ -778,7 +792,7 @@ Casey Best
 
 =head1 COPYRIGHT
 
-Copyright (C) 2012 Science and Technology Facilities Council.
+Copyright (C) 2012, 2013 Science and Technology Facilities Council.
 Copyright (C) 1998, 1999 Particle Physics and Astronomy Research
 Council. All Rights Reserved.
 

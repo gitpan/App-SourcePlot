@@ -22,17 +22,19 @@ display a plot of astronomical sources on adjustable axes.
 use strict;
 #use warnings;
 
-our $VERSION = '1.18';
+our $VERSION = '1.19';
 
+use Config::IniFiles;
 use Tk;
 use Tk::Balloon;
 use Tk::FileSelect;
 use App::SourcePlot::Plotter::Tk;
 use DateTime;
 use DateTime::Format::Strptime;
-use App::SourcePlot::Defaults;
 use App::SourcePlot::Source;
+use File::HomeDir;
 use File::ShareDir qw/dist_file/;
+use File::Spec;
 use Tk::AstroCatalog;
 use Astro::PAL;
 use Astro::Telescope;
@@ -100,7 +102,7 @@ my $H_WIDTH = 3;
 my $optBut;
 my $dateBut;
 my $eBut;
-my $defaults;
+my $defaults = undef;
 my $balloon;
 
 =head1 METHODS
@@ -115,17 +117,24 @@ Initializes the Source Plot GUI application and enters the Tk main loop.
 
 sub run_sourceplot_gui {
   # setting up default values for Source Plot Options
-  $defaults = new App::SourcePlot::Defaults();
-  $defaults->file('.splotcfg');
-  $defaults->r_defaults(\%defaults);
-  $TEL = $defaults->values('TEL');
-  $X_AXIS = $defaults->values('XAXIS');
-  $Y_AXIS = $defaults->values('YAXIS');
-  $TIME = $defaults->values('TIME');
-  chomp($X_AXIS);
-  chomp($Y_AXIS);
-  chomp($TIME);
-  chomp($TEL);
+  my $defaults_file = File::Spec->catfile(File::HomeDir->my_home(),
+                                          '.splotcfg');
+  if (-e $defaults_file) {
+      # Set the "fallback" section to allow reading of defaults
+      # files from previous versions of SourcePlot.
+      $defaults = new Config::IniFiles(-file => $defaults_file,
+                                       -fallback => 'Options');
+  }
+  unless (defined $defaults) {
+      print STDERR $_, "\n" foreach @Config::IniFiles::errors;
+
+      $defaults = new Config::IniFiles();
+      $defaults->SetFileName($defaults_file);
+  }
+  $TEL    = $defaults->val('Options', 'TEL',   $defaults{'TEL'});
+  $X_AXIS = $defaults->val('Options', 'XAXIS', $defaults{'XAXIS'});
+  $Y_AXIS = $defaults->val('Options', 'YAXIS', $defaults{'YAXIS'});
+  $TIME   = $defaults->val('Options', 'TIME',  $defaults{'TIME'});
   $telObject = new Astro::Telescope($TEL);
 
 
@@ -153,7 +162,6 @@ sub run_sourceplot_gui {
   $yr += 1900;
   $DATE = "$yr\/$mo\/$md\/";
   $TODAY = $DATE;
-  $TIME = "1:30:00";
 
   my $canFrame = $MW->Frame(
                      -takefocus => 1,
@@ -797,11 +805,11 @@ sub changeOpt {
                         $Y_AXIS = $yEnt;
                         $TEL = $telEnt;
                         $TIME = $timeEnt;
-                        $defaults->values('TEL', $TEL);
-                        $defaults->values('XAXIS', $X_AXIS);
-                        $defaults->values('YAXIS', $Y_AXIS);
-                        $defaults->values('TIME', $TIME);
-                        $defaults->w_defaults();
+                        $defaults->newval('Options', 'TEL',   $TEL);
+                        $defaults->newval('Options', 'XAXIS', $X_AXIS);
+                        $defaults->newval('Options', 'YAXIS', $Y_AXIS);
+                        $defaults->newval('Options', 'TIME',  $TIME);
+                        $defaults->RewriteConfig();
                    }
                   )->pack(-side=>'right');
   $MW->update;
@@ -837,7 +845,7 @@ Returns a Source object.
 
 sub getSource {
   my $source = shift;
-  my @Epocs = ('RJ', 'RB');
+  my @Epocs = qw/RJ RB GA AZ/;
   my $name;
 
   my $Top = $MW->Toplevel;
@@ -857,19 +865,19 @@ sub getSource {
                    )->grid(-column=>0, -row=>1);
   my $raEnt = $topFrame->Entry(-relief=>'sunken',
                                 -width=>15)->grid(-column=>1, -row=>1, -padx =>10, -pady=>3);
-  $raEnt->insert(0,$source->ra());
+  $raEnt->insert(0,$source->ra()) unless $source->is_blank();
 
   $topFrame->Label (
                     -text => "Dec:"
                    )->grid(-column=>0, -row=>2);
   my $decEnt = $topFrame->Entry(-relief=>'sunken',
                                 -width=>15)->grid(-column=>1, -row=>2, -padx =>10, -pady=>3);
-  $decEnt->insert(0,$source->dec());
+  $decEnt->insert(0,$source->dec()) unless $source->is_blank();
 
   $topFrame->Label (
                     -text => "Epoc:"
                    )->grid(-column=>0, -row=>3, -padx =>5, -pady=>5);
-  my $epocEnt = $source->epoc();
+  my $epocEnt = $source->is_blank() ? $Epocs[0] : $source->epoc();
   my $epocB = $topFrame->Menubutton( -text=>$epocEnt, -relief => 'raised', -width => 15);
   foreach $name (@Epocs) {
     $epocB->command(-label =>$name, -command=> sub{
@@ -900,105 +908,6 @@ sub getSource {
                   )->pack(-side=>'right');
   $Top->update;
   $Top->grab;
-}
-
-=item B<searchFor>
-
-Searches for sources that match the information
-passed in the form of a partially filled source object.
-
-=cut
-
-sub searchFor {
-  my $info = shift;
-  my @Sources = @_;
-  my @rSources = ();
-  my $source;
-  my $i;
-  my $debug = 0;
-
-  # set the info name
-  my $iname = $info->name;
-  $iname =~ tr/A-Z/a-z/;
-
-  # set the info Ra
-  my $iRa = $info->ra;
-  my $RaDecimal = ($iRa =~ /\./);
-  my @iraParts = split (/:/, $iRa);
-
-  # set the info Dec
-  my $iDec = $info->dec;
-  my $idecNeg = ($iDec =~ /\-/);
-  my $DecDecimal = ($iDec =~ /\./);
-  my @idecParts = split (/:/, $iDec);
-
-  foreach $source (@Sources) {
-    my $passed = 1;
-
-    # check the name
-    if ($iname ne '') {
-      my $name = $source->name;
-      $name =~ tr/A-Z/a-z/;
-      print "checking names  $iname   vs   $name" if $debug;
-      if (!($name =~ /$iname/)) {
-        print "...Did not match ...\n" if $debug;
-        $passed = 0;
-      } else {
-        print "\n" if $debug;
-      }
-    }
-
-    # check the Ra
-    if ($iRa ne '') {
-      my $Ra = $source->ra;
-      $Ra =~ s/^\s+//;
-      $Ra =~ s/\s+$//;
-      $Ra =~ s/s+/:/g;
-      $Ra =~ s/\..*// if !$RaDecimal;
-      print "checking ra  $iRa   vs   $Ra\n" if $debug;
-      my @raParts = split (/:/, $Ra);
-      $i = 0;
-      foreach (@iraParts) {
-        print "     checking $_ vs $raParts[$i]\n" if $debug;
-        if ($_ != $raParts[$i]) {
-          $passed = 0;
-        }
-        $i++;
-      }
-    }
-
-    # check the Dec
-    if ($iDec ne '') {
-      my $Dec = $source->dec;
-      $Dec =~ s/^\s+//;
-      $Dec =~ s/\s+$//;
-      $Dec =~ s/\+//g;
-      $Dec =~ s/\-\s+/\-/;
-      $Dec =~ s/s+/:/g;
-      my $decNeg = ($Dec =~ /\-/);
-      if ($decNeg != $idecNeg) {
-        $passed = 0;
-      } else {
-        $Dec =~ s/\..*// if !$DecDecimal;
-        print "checking dec  $iDec   vs   $Dec\n" if $debug;
-        my @decParts = split (/:/, $Dec);
-        $i = 0;
-        foreach (@idecParts) {
-          print "     checking $_ vs $decParts[$i]\n" if $debug;
-          if ($_ != $decParts[$i]) {
-            $passed = 0;
-          }
-          $i++;
-        }
-      }
-    }
-
-    # is it ok to add?
-    if ($passed) {
-      push (@rSources, $source);
-    }
-  }
-  return @rSources;
 }
 
 =item B<editSource>
@@ -1505,18 +1414,20 @@ sub plot {
                  pattern => '%Y/%m/%d %H:%M:%S',
                  on_error => 'croak');
 
-    my $dt = $strp->parse_datetime($DATE . ' ' . $TIME);
+    my $DATESTR = $DATE;
+    $DATESTR =~ s/\/$//;
+    my $dt = $strp->parse_datetime($DATESTR . ' ' . $TIME);
 
     $dt->subtract(hours => 2);
 
     my ($lst, $mjd) = ut2lst($dt->year(), $dt->month(), $dt->day(),
-                             $dt->hour(), $dt->minute(), $dt->section(),
+                             $dt->hour(), $dt->minute(), $dt->second(),
                              $telObject->long_by_rad());
 
     $dt->add(hours => 1);
 
     my ($lst2, $mjd2) = ut2lst($dt->year(), $dt->month(), $dt->day(),
-                               $dt->hour(), $dt->minute(), $dt->section(),
+                               $dt->hour(), $dt->minute(), $dt->second(),
                                $telObject->long_by_rad());
 
     if ($lst2 < $lst) {
@@ -2628,7 +2539,7 @@ Graham Bell (Joint Astronomy Centre).
 
 =head1 COPYRIGHT
 
-Copyright (C) 2012 Science and Technology Facilities Council.
+Copyright (C) 2012, 2013 Science and Technology Facilities Council.
 Copyright (C) 1998, 1999 Particle Physics and Astronomy Research
 Council. All Rights Reserved.
 
