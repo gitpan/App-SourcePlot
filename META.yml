@@ -21,7 +21,7 @@ name: App-SourcePlot
 provides:
   App::SourcePlot:
     file: lib/App/SourcePlot.pm
-    version: 1.20
+    version: 1.21
   App::SourcePlot::Plotter::Tk:
     file: lib/App/SourcePlot/Plotter/Tk.pm
     version: 0.11
@@ -45,4 +45,4 @@ resources:
   homepage: http://github.com/grahambell/perl-App-SourcePlot/tree/master
   license: http://www.gnu.org/licenses/gpl-3.0.txt
   repository: git://github.com/grahambell/perl-App-SourcePlot.git
-version: 1.20
+version: 1.21

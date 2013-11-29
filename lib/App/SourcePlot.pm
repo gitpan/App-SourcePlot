@@ -22,7 +22,7 @@ display a plot of astronomical sources on adjustable axes.
 use strict;
 #use warnings;
 
-our $VERSION = '1.20';
+our $VERSION = '1.21';
 
 use Config::IniFiles;
 use Tk;
@@ -1605,7 +1605,7 @@ sub plot {
     }
   } elsif ($X_AXIS =~ /elevation/i) {
     my $y = $plotter->toWy ($yplot - $yborder - 10);
-    for ( my $deg = $minX+20; $deg < $maxX; $deg += 20 ) {
+    for ( my $deg = $minX+20; $deg < $maxX; $deg += 10 ) {
       $plotter->drawLine($deg, $minY, $deg, $maxY, 'grid');
       $plotter->drawText($deg, $y, $deg, 'twhite');
     }
@@ -1694,7 +1694,7 @@ sub plot {
       $ho += 4;
     }
   } elsif ($Y_AXIS =~ /elevation/i) {
-    for ( my $deg = $minY+20; $deg < $maxY; $deg += 20 ) {
+    for ( my $deg = $minY+20; $deg < $maxY; $deg += 10 ) {
       $plotter->drawLine($minX, $deg, $maxX, $deg, 'grid');
       my $x = $plotter->toWx ($xborder + 10);
       $plotter->drawText($x, $deg, $deg, 'twhite');
